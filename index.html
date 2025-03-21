@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>記憶燈光挑戰</title>
+    <style>
+        body { 
+            text-align: center; 
+            font-family: Arial, sans-serif; 
+            background-color: #000; /* 背景設為黑色 */
+            color: #fff; /* 文字設為白色 */
+            margin: 0;
+            padding: 20px;
+        }
+        .grid { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); /* 4列的格子佈局 */
+            grid-template-rows: repeat(4, 1fr); /* 4行的格子佈局 */
+            gap: 10px; /* 每個格子之間的間距 */
+            width: 420px; /* 總寬度 */
+            height: 420px; /* 總高度 */
+            margin: 20px auto; /* 水平置中 */
+        }
+        .cell { 
+            width: 100%; 
+            height: 100%; 
+            background-color: #333; /* 深灰色作為按鈕背景 */
+            border-radius: 10px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 24px; 
+            cursor: pointer; 
+        }
+        .cell.active { background-color: yellow; } /* 閃燈顏色 */
+        .cell.correct { background-color: lightgreen; } /* 玩家正確點擊的顏色 */
+        .cell.wrong { background-color: lightcoral; } /* 玩家錯誤點擊的顏色 */
+        #message { 
+            margin-top: 20px; 
+            font-size: 20px; 
+            color: #fff; /* 保持白色文字 */
+        }
+        #start { 
+            margin-top: 10px; 
+            padding: 10px 20px; 
+            font-size: 18px; 
+            background-color: #444; /* 深灰色背景 */
+            color: #fff; /* 白色文字 */
+            border: 2px solid #fff; 
+            border-radius: 5px; 
+            cursor: pointer; 
+        }
+        #start:hover {
+            background-color: #555; /* 鼠標懸停時稍微變亮 */
+        }
+        #lives { 
+            margin-top: 20px; 
+            font-size: 18px; 
+            color: #fff; 
+        }
+    </style>
+</head>
+<body>
+
+    <h1>記憶燈光挑戰</h1>
+    <button id="start">開始遊戲</button>
+    <div id="message"></div>
+    <div id="lives"></div>
+    <div class="grid" id="grid"></div>
+
+    <script>
+        const grid = document.getElementById("grid");
+        const message = document.getElementById("message");
+        const startBtn = document.getElementById("start");
+        const livesDisplay = document.getElementById("lives");
+        let sequence = [];
+        let playerInput = [];
+        let level = 1;
+        let lives = 5; // 每關的初始生命數
+
+        // 建立 16 個按鈕
+        for (let i = 0; i < 16; i++) {
+            const cell = document.createElement("div");
+            cell.classList.add("cell");
+            cell.dataset.index = i;
+            cell.addEventListener("click", handleClick);
+            grid.appendChild(cell);
+        }
+
+        function startGame() {
+            level = 1;
+            lives = 5; // 重置生命數
+            sequence = [];
+            playerInput = [];
+            updateLives();
+            message.textContent = "記住亮燈的順序！";
+            nextRound();
+        }
+
+        function nextRound() {
+            playerInput = [];
+            sequence = generateRandomSequence(level); // 每一關生成新的隨機序列
+            showSequence();
+        }
+
+        function generateRandomSequence(length) {
+            const newSequence = [];
+            while (newSequence.length < length) {
+                const randomIndex = Math.floor(Math.random() * 16);
+                if (!newSequence.includes(randomIndex)) {
+                    newSequence.push(randomIndex);
+                }
+            }
+            return newSequence;
+        }
+
+        function showSequence() {
+            let i = 0;
+            const cells = document.querySelectorAll(".cell");
+
+            function lightUp() {
+                if (i < sequence.length) {
+                    const index = sequence[i];
+                    cells[index].classList.add("active");
+                    setTimeout(() => {
+                        cells[index].classList.remove("active");
+                        i++;
+                        setTimeout(lightUp, 1200); // 閃燈間隔 1.2 秒
+                    }, 900);
+                } else {
+                    message.textContent = "請點擊正確的順序！";
+                }
+            }
+
+            lightUp();
+        }
+
+        function handleClick(event) {
+            const cells = document.querySelectorAll(".cell");
+            const index = parseInt(event.target.dataset.index);
+            if (sequence.length === 0) return;
+
+            playerInput.push(index);
+
+            // 玩家點擊後，檢查是否正確
+            if (playerInput[playerInput.length - 1] === sequence[playerInput.length - 1]) {
+                const clickedCell = cells[index];
+                clickedCell.classList.add("correct");
+                setTimeout(() => {
+                    clickedCell.classList.remove("correct"); // 短暫顯示後恢復原狀
+                }, 300);
+
+                // 檢查是否完成當前序列
+                if (playerInput.length === sequence.length) {
+                    message.textContent = `第 ${level} 關挑戰成功！準備下一關！`;
+                    level++;
+                    setTimeout(nextRound, 1000);
+                }
+            } else {
+                // 玩家點擊錯誤
+                lives--;
+                updateLives();
+                const clickedCell = cells[index];
+                clickedCell.classList.add("wrong");
+                setTimeout(() => {
+                    clickedCell.classList.remove("wrong"); // 短暫顯示後恢復原狀
+                }, 300);
+
+                if (lives > 0) {
+                    message.textContent = `錯誤！你還有 ${lives} 次機會，重新生成序列！`;
+                    setTimeout(nextRound, 1000); // 重新生成序列並閃燈
+                } else {
+                    message.textContent = "挑戰失敗！遊戲結束！";
+                    sequence = []; // 重置遊戲
+                }
+            }
+        }
+
+        function updateLives() {
+            livesDisplay.textContent = `剩餘生命：${lives}`;
+        }
+
+        startBtn.addEventListener("click", startGame);
+    </script>
+
+</body>
+</html>
