@@ -8,24 +8,24 @@
         body { 
             text-align: center; 
             font-family: Arial, sans-serif; 
-            background-color: #000; /* 背景設為黑色 */
-            color: #fff; /* 文字設為白色 */
+            background-color: #000; 
+            color: #fff; 
             margin: 0;
             padding: 20px;
         }
         .grid { 
             display: grid; 
-            grid-template-columns: repeat(4, 1fr); /* 4列的格子佈局 */
-            grid-template-rows: repeat(4, 1fr); /* 4行的格子佈局 */
-            gap: 10px; /* 每個格子之間的間距 */
-            width: 420px; /* 總寬度 */
-            height: 420px; /* 總高度 */
-            margin: 20px auto; /* 水平置中 */
+            grid-template-columns: repeat(4, 1fr); 
+            grid-template-rows: repeat(4, 1fr); 
+            gap: 10px; 
+            width: 420px; 
+            height: 420px; 
+            margin: 20px auto; 
         }
         .cell { 
             width: 100%; 
             height: 100%; 
-            background-color: #333; /* 深灰色作為按鈕背景 */
+            background-color: #333; 
             border-radius: 10px; 
             display: flex; 
             align-items: center; 
@@ -33,31 +33,35 @@
             font-size: 24px; 
             cursor: pointer; 
         }
-        .cell.active { background-color: yellow; } /* 閃燈顏色 */
-        .cell.correct { background-color: lightgreen; } /* 玩家正確點擊的顏色 */
-        .cell.wrong { background-color: lightcoral; } /* 玩家錯誤點擊的顏色 */
+        .cell.active { background-color: yellow; } 
+        .cell.correct { background-color: lightgreen; } 
+        .cell.wrong { background-color: lightcoral; }
         #message { 
             margin-top: 20px; 
             font-size: 20px; 
-            color: #fff; /* 保持白色文字 */
+            color: #fff; 
         }
         #start { 
             margin-top: 10px; 
             padding: 10px 20px; 
             font-size: 18px; 
-            background-color: #444; /* 深灰色背景 */
-            color: #fff; /* 白色文字 */
+            background-color: #444; 
+            color: #fff; 
             border: 2px solid #fff; 
             border-radius: 5px; 
             cursor: pointer; 
         }
         #start:hover {
-            background-color: #555; /* 鼠標懸停時稍微變亮 */
+            background-color: #555;
         }
-        #lives { 
+        #lives, #highscore { 
             margin-top: 20px; 
             font-size: 18px; 
             color: #fff; 
+        }
+        #interval-select {
+            margin-top: 20px;
+            font-size: 18px;
         }
     </style>
 </head>
@@ -67,6 +71,15 @@
     <button id="start">開始遊戲</button>
     <div id="message"></div>
     <div id="lives"></div>
+    <div id="highscore"></div>
+    <div id="interval-select">
+        <label for="interval">亮燈時隔:</label>
+        <select id="interval">
+            <option value="800">0.8秒</option>
+            <option value="1000" selected>1秒</option>
+            <option value="1200">1.2秒</option>
+        </select>
+    </div>
     <div class="grid" id="grid"></div>
 
     <script>
@@ -74,12 +87,20 @@
         const message = document.getElementById("message");
         const startBtn = document.getElementById("start");
         const livesDisplay = document.getElementById("lives");
+        const highscoreDisplay = document.getElementById("highscore");
+        const intervalSelect = document.getElementById("interval");
+
         let sequence = [];
         let playerInput = [];
         let level = 1;
-        let lives = 5; // 每關的初始生命數
+        let lives = 5;
+        let highestScore = localStorage.getItem("highestScore") || 0; // 讀取最高分數
+        let isSequenceActive = false; // 是否允許玩家輸入
 
-        // 建立 16 個按鈕
+        // 顯示最高分
+        highscoreDisplay.textContent = `最高分：${highestScore}`;
+
+        // 建立 16 個格子
         for (let i = 0; i < 16; i++) {
             const cell = document.createElement("div");
             cell.classList.add("cell");
@@ -90,7 +111,7 @@
 
         function startGame() {
             level = 1;
-            lives = 5; // 重置生命數
+            lives = 5;
             sequence = [];
             playerInput = [];
             updateLives();
@@ -100,7 +121,7 @@
 
         function nextRound() {
             playerInput = [];
-            sequence = generateRandomSequence(level); // 每一關生成新的隨機序列
+            sequence = generateRandomSequence(level); 
             showSequence();
         }
 
@@ -118,17 +139,21 @@
         function showSequence() {
             let i = 0;
             const cells = document.querySelectorAll(".cell");
+            const intervalTime = parseInt(intervalSelect.value); // 取得選擇的亮燈時隔
+            isSequenceActive = true; // 亮燈時，玩家不能點擊
 
             function lightUp() {
                 if (i < sequence.length) {
                     const index = sequence[i];
                     cells[index].classList.add("active");
+                    playSound(); // 播放音效
                     setTimeout(() => {
                         cells[index].classList.remove("active");
                         i++;
-                        setTimeout(lightUp, 1200); // 閃燈間隔 1.2 秒
-                    }, 900);
+                        setTimeout(lightUp, intervalTime); 
+                    }, intervalTime);
                 } else {
+                    isSequenceActive = false; // 亮燈結束後可以觸摸
                     message.textContent = "請點擊正確的順序！";
                 }
             }
@@ -137,34 +162,39 @@
         }
 
         function handleClick(event) {
+            if (isSequenceActive) return; // 亮燈結束前，點擊無效
+
             const cells = document.querySelectorAll(".cell");
             const index = parseInt(event.target.dataset.index);
-            if (sequence.length === 0) return;
-
             playerInput.push(index);
 
-            // 玩家點擊後，檢查是否正確
+            // 播放觸摸音效
+            playClickSound();
+
             if (playerInput[playerInput.length - 1] === sequence[playerInput.length - 1]) {
                 const clickedCell = cells[index];
                 clickedCell.classList.add("correct");
                 setTimeout(() => {
-                    clickedCell.classList.remove("correct"); // 短暫顯示後恢復原狀
+                    clickedCell.classList.remove("correct");
                 }, 300);
 
-                // 檢查是否完成當前序列
                 if (playerInput.length === sequence.length) {
                     message.textContent = `第 ${level} 關挑戰成功！準備下一關！`;
                     level++;
+                    if (level > highestScore) {
+                        highestScore = level;
+                        localStorage.setItem("highestScore", highestScore); // 儲存最高分
+                        highscoreDisplay.textContent = `最高分：${highestScore}`;
+                    }
                     setTimeout(nextRound, 1000);
                 }
             } else {
-                // 玩家點擊錯誤
                 lives--;
                 updateLives();
                 const clickedCell = cells[index];
                 clickedCell.classList.add("wrong");
                 setTimeout(() => {
-                    clickedCell.classList.remove("wrong"); // 短暫顯示後恢復原狀
+                    clickedCell.classList.remove("wrong");
                 }, 300);
 
                 if (lives > 0) {
@@ -172,13 +202,32 @@
                     setTimeout(nextRound, 1000); // 重新生成序列並閃燈
                 } else {
                     message.textContent = "挑戰失敗！遊戲結束！";
-                    sequence = []; // 重置遊戲
+                    sequence = []; 
                 }
             }
         }
 
         function updateLives() {
             livesDisplay.textContent = `剩餘生命：${lives}`;
+        }
+
+        // 播放音效
+        function playSound() {
+            const sound = new Audio('https://www.soundjay.com/button/beep-07.wav');
+            sound.play();
+        }
+
+        // 播放點擊音效
+        function playClickSound() {
+            const clickSound = new Audio('https://www.soundjay.com/button/beep-09.wav');
+            clickSound.play();
+        }
+
+        // 震動反饋
+        function vibrate() {
+            if (navigator.vibrate) {
+                navigator.vibrate(100); // 震動 100 毫秒
+            }
         }
 
         startBtn.addEventListener("click", startGame);
